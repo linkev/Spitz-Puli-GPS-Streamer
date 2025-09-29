@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # GL.iNet GPS Streamer Service
+  glinet-gps-streamer:
+    build: .
+    container_name: glinet-gps-streamer
+    ports:
+      - "9999:9999"
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=glinet-gps-token
+      - INFLUXDB_ORG=glinet-gps
+      - INFLUXDB_BUCKET=gps_data
+      - LOG_LEVEL=INFO
+    depends_on:
+      - influxdb
+    restart: unless-stopped
+
+  # InfluxDB Time Series Database
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=glinet-gps123
+      - DOCKER_INFLUXDB_INIT_ORG=glinet-gps
+      - DOCKER_INFLUXDB_INIT_BUCKET=gps_data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=glinet-gps-token
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    restart: unless-stopped
+
+  # Grafana Visualization
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-worldmap-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - influxdb
+      - glinet-gps-streamer
+    restart: unless-stopped
+
+volumes:
+  influxdb_data:
+  influxdb_config:
+  grafana_data:
